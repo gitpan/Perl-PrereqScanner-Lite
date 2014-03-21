@@ -6,7 +6,7 @@ use Compiler::Lexer;
 use CPAN::Meta::Requirements;
 use Perl::PrereqScanner::Lite::Constants;
 
-our $VERSION = "0.10";
+our $VERSION = "0.11";
 
 sub new {
     my ($class) = @_;
@@ -61,15 +61,23 @@ sub scan_module {
 sub _scan {
     my ($self, $tokens) = @_;
 
-    my $module_name    = 0;
+    my $module_name    = '';
     my $module_version = 0;
 
-    my $is_in_reglist = 0;
-    my $is_in_usedecl = 0;
-    my $is_in_reqdecl = 0;
-    my $is_inherited  = 0;
-    my $is_in_list    = 0;
+    my $not_decl_module_name = '';
 
+    my $is_in_reglist   = 0;
+    my $is_in_usedecl   = 0;
+    my $is_in_reqdecl   = 0;
+    my $is_inherited    = 0;
+    my $is_in_list      = 0;
+    my $is_version_decl = 0;
+    my $is_prev_module_name = 0;
+
+    my $does_garbage_exist = 0;
+    my $does_use_lib = 0;
+
+    TOP:
     for my $token (@$tokens) {
         my $token_type = $token->{type};
 
@@ -82,7 +90,7 @@ sub _scan {
             # e.g.
             #   require Foo;
             if ($token_type == REQUIRED_NAME) {
-                $self->{module_reqs}->add_minimum($token->{data} => 0);
+                $self->_add_minimum($token->{data} => 0);
 
                 $is_in_reqdecl = 0;
                 next;
@@ -97,11 +105,9 @@ sub _scan {
 
             # End of declare of require statement
             if ($token_type == SEMI_COLON) {
-                unless ($module_name) {
-                    next;
+                if ($module_name) {
+                    $self->_add_minimum($module_name => 0);
                 }
-
-                $self->{module_reqs}->add_minimum($module_name => 0);
 
                 $module_name   = '';
                 $is_in_reqdecl = 0;
@@ -122,22 +128,25 @@ sub _scan {
             #   use parent qw/Foo/;
             if ($token_type == USED_NAME) {
                 $module_name = $token->{data};
+
+                if ($module_name eq 'lib') {
+                    $self->_add_minimum($module_name, 0);
+                    $does_use_lib = 1;
+                }
+
                 if ($module_name =~ /(?:base|parent)/) {
                     $is_inherited = 1;
                 }
-                next;
-            }
-
-            # e.g.
-            #   use Foo::Bar;
-            if ($token_type == NAMESPACE || $token_type == NAMESPACE_RESOLVER) {
-                $module_name .= $token->{data};
+                $is_prev_module_name = 1;
                 next;
             }
 
             # End of declare of use statement
-            if ($token_type == SEMI_COLON) {
-                $self->{module_reqs}->add_minimum($module_name => $module_version);
+            if ($token_type == SEMI_COLON || $token->{data} eq ';') {
+                #                            ~~~~~~~~~~~~~~~~~~~~~ XXX Compiler::Lexer matter?
+                if ($module_name && !$does_use_lib) {
+                    $self->_add_minimum($module_name => $module_version);
+                }
 
                 $module_name    = '';
                 $module_version = 0;
@@ -145,7 +154,18 @@ sub _scan {
                 $is_inherited   = 0;
                 $is_in_list     = 0;
                 $is_in_usedecl  = 0;
+                $does_use_lib   = 0;
+                $does_garbage_exist  = 0;
+                $is_prev_module_name = 0;
 
+                next;
+            }
+
+            # e.g.
+            #   use Foo::Bar;
+            if ($token_type == NAMESPACE || $token_type == NAMESPACE_RESOLVER) {
+                $module_name .= $token->{data};
+                $is_prev_module_name = 1;
                 next;
             }
 
@@ -159,8 +179,8 @@ sub _scan {
                 }
                 elsif ($is_in_reglist) {
                     if ($token_type == REG_EXP) {
-                        for my $_module_name (split /\s+/, $token->data) {
-                            $self->{module_reqs}->add_minimum($_module_name => 0);
+                        for my $_module_name (split /\s+/, $token->{data}) {
+                            $self->_add_minimum($_module_name => 0);
                         }
                         $is_in_reglist = 0;
                     }
@@ -177,7 +197,7 @@ sub _scan {
                 }
                 elsif ($is_in_list) {
                     if ($token_type == STRING || $token_type == RAW_STRING) {
-                        $self->{module_reqs}->add_minimum($token->data => 0);
+                        $self->_add_minimum($token->{data} => 0);
                     }
                 }
 
@@ -185,44 +205,58 @@ sub _scan {
                 # e.g.
                 #   use parent "Foo"
                 elsif ($token_type == STRING || $token_type == RAW_STRING) {
-                    $self->{module_reqs}->add_minimum($token->data => 0);
+                    $self->_add_minimum($token->{data} => 0);
                 }
 
+                $is_prev_module_name = 0;
                 next;
             }
 
-            if ($token_type == STRING || $token_type == RAW_STRING || $token_type == DOUBLE) {
+            if ($token_type == DOUBLE || $token_type == INT || $token_type == VERSION_STRING) {
                 if (!$module_name) {
-                    # For perl version
-                    # e.g.
-                    #   use 5.012;
-                    my $perl_version = $token->data;
-                    $self->{module_reqs}->add_minimum('perl' => $perl_version);
-                    $is_in_usedecl = 0;
-                }
-                else {
-                    # For module version
-                    # e.g.
-                    #   use Foo::Bar '0.0.1';
-                    if ($token->data =~ /\d+(\.\d+)*/) {
-                        $module_version = $token->data;
+                    if (!$does_garbage_exist) {
+                        # For perl version
+                        # e.g.
+                        #   use 5.012;
+                        my $perl_version = $token->{data};
+                        $self->_add_minimum('perl' => $perl_version);
+                        $is_in_usedecl = 0;
                     }
                 }
+                elsif($is_prev_module_name) {
+                    # For module version
+                    # e.g.
+                    #   use Foo::Bar 0.0.1;'
+                    #   use Foo::Bar v0.0.1;
+                    #   use Foo::Bar 0.0_1;
+                    $module_version = $token->{data};
+                }
 
+                $is_prev_module_name = 0;
                 next;
             }
 
+            $is_prev_module_name = 0;
+            $does_garbage_exist  = 1;
             next;
         }
 
         for my $extra_scanner (@{$self->{extra_scanners}}) {
             if ($extra_scanner->scan($self, $token, $token_type)) {
-                last;
+                next TOP;
             }
         }
     }
 
     return $self->{module_reqs};
+}
+
+sub _add_minimum {
+    my ($self, $module_name, $module_version) = @_;
+
+    if ($module_name) {
+        $self->{module_reqs}->add_minimum($module_name => $module_version);
+    }
 }
 
 1;
@@ -292,8 +326,15 @@ e.g.
 
 Add extra scanner to scan and figure out prereqs. This module loads extra scanner such as C<Perl::PrereqScanner::Lite::Scanner::$scanner_name> if specifying scanner name through this method.
 
-Now this module supports extra scanner for L<Moose> families C<extends> notation.
-Please see also L<Perl::PrereqScanner::Lite::Scanner::Moose>.
+Extra scanners that are default supported are followings;
+
+=over 8
+
+=item * L<Perl::PrereqScanner::Lite::Scanner::Moose>
+
+=item * L<Perl::PrereqScanner::Lite::Scanner::Version>
+
+=back
 
 =back
 

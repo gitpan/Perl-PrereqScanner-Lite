@@ -13,6 +13,7 @@ eg/scan_tokens.pl
 lib/Perl/PrereqScanner/Lite.pm
 lib/Perl/PrereqScanner/Lite/Constants.pm
 lib/Perl/PrereqScanner/Lite/Scanner/Moose.pm
+lib/Perl/PrereqScanner/Lite/Scanner/Version.pm
 minil.toml
 t/00_compile.t
 t/01_scan_file.t
@@ -20,9 +21,11 @@ t/02_scan_string.t
 t/03_scan_tokens.t
 t/04_scan_module.t
 t/10_moose_extends.t
+t/11_version_method.t
 t/Util.pm
 t/resources/foo.pl
 t/resources/moose.pl
+t/resources/version.pl
 xt/perlcritic.t
 xt/perlcriticrc
 META.yml

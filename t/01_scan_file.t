@@ -19,10 +19,11 @@ cmp_deeply(get_reqs_hash($got), {
     'warnings'     => 0,
     'parent'       => 0,
     'base'         => 0,
-    'perl'         => 5.008001,
+    'lib'          => 0,
+    'perl'         => 'v5.8.1',
     'Time::Local'  => 0,
     'Exporter'     => 0,
-    'File::Temp'   => 0.12,
+    'File::Temp'   => '0.1_2',
     'Fcntl'        => 0,
     'FileHandle'   => 0,
     'Env'          => 0,
@@ -37,6 +38,8 @@ cmp_deeply(get_reqs_hash($got), {
     'Opcode'       => 0,
     'Pod::Checker' => 0,
     'Pod::Find'    => 0,
+    'JSON'         => 2,
+    'Test::More'   => 0,
 });
 
 done_testing;
