@@ -5,6 +5,7 @@ META.json
 README.md
 author/benchmark.pl
 author/benchmark_between_branches.pl
+author/benchmark_with_moose.pl
 cpanfile
 eg/scan_file.pl
 eg/scan_module.pl
