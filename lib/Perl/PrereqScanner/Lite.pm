@@ -6,7 +6,7 @@ use Compiler::Lexer;
 use CPAN::Meta::Requirements;
 use Perl::PrereqScanner::Lite::Constants;
 
-our $VERSION = "0.17";
+our $VERSION = "0.18";
 
 sub new {
     my ($class, $opt) = @_;
@@ -93,14 +93,14 @@ sub _scan {
         my $token_type = $token->{type};
 
         # For require statement
-        if ($token_type == REQUIRE_DECL) {
+        if ($token_type == REQUIRE_DECL || ($token_type == BUILTIN_FUNC && $token->{data} eq 'no')) {
             $is_in_reqdecl = 1;
             next;
         }
         if ($is_in_reqdecl) {
             # e.g.
             #   require Foo;
-            if ($token_type == REQUIRED_NAME) {
+            if ($token_type == REQUIRED_NAME || $token_type == KEY) {
                 $latest_prereq = $self->_add_minimum($token->{data} => 0);
 
                 $is_in_reqdecl = 0;
@@ -156,9 +156,7 @@ sub _scan {
             }
 
             # End of declare of use statement
-            if ($token_type == SEMI_COLON || $token->{data} eq ';' || $token_type == LEFT_BRACE || $token_type == LEFT_BRACKET) {
-                #                            ~~~~~~~~~~~~~~~~~~~~~ XXX This problem fixed at https://github.com/goccy/p5-Compiler-Lexer/commit/248c63b6ebf8234657f775e8bd76760af3d00134
-                #                                                  But it has not released yet (in 2014-03-23).
+            if ($token_type == SEMI_COLON || $token_type == LEFT_BRACE || $token_type == LEFT_BRACKET) {
                 if ($module_name && !$does_use_lib_or_constant) {
                     $latest_prereq = $self->_add_minimum($module_name => $module_version);
                 }
