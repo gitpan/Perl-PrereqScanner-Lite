@@ -23,8 +23,11 @@ t/03_scan_tokens.t
 t/04_scan_module.t
 t/10_moose_extends.t
 t/11_version_method.t
+t/20_left_paran_is_behind_at_module_name.t
 t/Util.pm
-t/resources/foo.pl
+t/resources/basic.pl
+t/resources/left_paren_is_behind_at_module_name/basic.pl
+t/resources/left_paren_is_behind_at_module_name/with_version.pl
 t/resources/moose.pl
 t/resources/version.pl
 xt/perlcritic.t
