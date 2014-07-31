@@ -49,7 +49,7 @@
       "runtime" : {
          "requires" : {
             "CPAN::Meta::Requirements" : "2.125",
-            "Compiler::Lexer" : "0.18",
+            "Compiler::Lexer" : "0.19",
             "Module::Path" : "0",
             "parent" : "0",
             "perl" : "5.008005"
@@ -65,7 +65,7 @@
    "provides" : {
       "Perl::PrereqScanner::Lite" : {
          "file" : "lib/Perl/PrereqScanner/Lite.pm",
-         "version" : "0.19"
+         "version" : "0.20"
       },
       "Perl::PrereqScanner::Lite::Constants" : {
          "file" : "lib/Perl/PrereqScanner/Lite/Constants.pm"
@@ -88,5 +88,5 @@
          "web" : "https://github.com/moznion/Perl-PrereqScanner-Lite"
       }
    },
-   "version" : "0.19"
+   "version" : "0.20"
 }
